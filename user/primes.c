@@ -1,4 +1,3 @@
-//Your goal is to use pipe and fork to set up the pipeline. The first process feeds the numbers 2 through 35 into the pipeline. For each prime number, you will arrange to create one process that reads from its left neighbor over a pipe and writes to its right neighbor over another pipe. Since xv6 has limited number of file descriptors and processes, the first process can stop at 35.
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
@@ -45,8 +44,9 @@ runcmd(){
 
   close(q[0]);	
   close(q[1]);	
-  if (init == 1) 
-  	wait(0);
+  //if (init == 1) 
+  wait(0);
+  //printf("PID:%d child pid:%d\n", getpid(), wait(0));
   exit(0);
 }
 
