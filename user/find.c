@@ -10,18 +10,18 @@ void find(const char *path, const char *target) {
   struct stat st;
 
   if((fd = open(path, 0)) < 0){
-    fprintf(2, "can't open file:%s", path);
+    fprintf(2, "can't open file:%s\n", path);
     return;
   }
   
   if(fstat(fd, &st) < 0) {
-    fprintf(2, "can't open file stat:%s", path);
+    fprintf(2, "can't open file stat:%s\n", path);
     close(fd);
     return;
   }
   switch(st.type) {
   case T_FILE:
-    fprintf(2, "Input path %s must be dir path", path);
+    fprintf(2, "Input path %s must be dir path\n", path);
     break;
   
   case T_DIR:
@@ -35,7 +35,7 @@ void find(const char *path, const char *target) {
       memmove(p, de.name, DIRSIZ);
       p[DIRSIZ] = 0;
       if(stat(buf, &st) < 0) {
-        printf("Can't stat %s", buf);
+        printf("Can't stat %s\n", buf);
         continue;
       }
       if(st.type == T_FILE && strcmp(de.name, target) == 0) {
