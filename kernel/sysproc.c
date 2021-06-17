@@ -106,3 +106,4 @@ sys_trace(void)
   myproc()->trace_mask = mask;
   return 0;
 }
+

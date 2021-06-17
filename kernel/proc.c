@@ -85,6 +85,17 @@ allocpid() {
   return pid;
 }
 
+int
+get_nproc(void)
+{
+  int cnt = 0;
+  for(int i = 0; i < NPROC; ++i) {
+    if (proc[i].state != UNUSED)
+        cnt += 1;
+  }
+  return cnt;
+}
+
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
