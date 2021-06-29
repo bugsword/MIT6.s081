@@ -51,11 +51,15 @@ exec(char *path, char **argv)
     uint64 sz1;
     if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz)) == 0)
       goto bad;
+    printf("exec load uvmalloc:%d\n", i);
+    vmprint(pagetable);
     sz = sz1;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
+    printf("exec load uvmalloc:%d\n", i);
+    vmprint(pagetable);
   }
   iunlockput(ip);
   end_op();
@@ -70,6 +74,8 @@ exec(char *path, char **argv)
   uint64 sz1;
   if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE)) == 0)
     goto bad;
+  printf("exec allocate 2 pages uvmalloc\n");
+  vmprint(pagetable);
   sz = sz1;
   uvmclear(pagetable, sz-2*PGSIZE);
   sp = sz;
@@ -116,7 +122,12 @@ exec(char *path, char **argv)
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
-  return argc; // this ends up in a0, the first argument to main(argc, argv)
+  if(p->pid == 1) {
+    vmprint(p->pagetable);
+    printf("name is:%s\n", p->name);
+  }
+    
+ return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:
   if(pagetable)

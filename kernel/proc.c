@@ -42,6 +42,8 @@ procinit(void)
       p->kstack = va;
   }
   kvminithart();
+  //printf("finish proc init:%d", NPROC);
+  //kvmprint();
 }
 
 // Must be called with interrupts disabled,
@@ -121,6 +123,25 @@ found:
     return 0;
   }
 
+  //p->kernel_pagetable = ukvminit();
+  p->kernel_pagetable = copy_kernel_pagetable();
+  if(p->kernel_pagetable == 0) {
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  /*
+  char *pa = kalloc();
+  if(pa == 0) 
+	panic("kalloc\n");
+  uint64 va = KSTACK((int) (p - proc));
+  if(mappages(p->kernel_pagetable, va, PGSIZE, (uint64)pa,  PTE_R | PTE_W) != 0)
+    panic("kvmmap");
+  //kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
+  */
+
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -141,7 +162,24 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  /*
+  if(p->kstack){
+    //uint64 pa = walkaddr(p->kernel_pagetable, p->kstack);
+    pte_t * pte = walk(p->kernel_pagetable, p->kstack, 0);
+    uint64 pa = PTE2PA(*pte);
+    if(pa == 0)
+	  panic("free kstack\n");
+	kfree((void*)pa);
+    *pte = 0;
+  }
+  */
+  if(p->kernel_pagetable)
+	ukvmunmap(p->kernel_pagetable);	
+	//kfree((void*)p->kernel_pagetable);
+ 
   p->pagetable = 0;
+  p->kernel_pagetable = 0;
+  //p->kstack = 0;
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -473,7 +511,11 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+  		w_satp(MAKE_SATP(p->kernel_pagetable));
+  		sfence_vma();
         swtch(&c->context, &p->context);
+		kvminithart();
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
