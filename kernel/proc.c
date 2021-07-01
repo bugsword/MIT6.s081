@@ -130,16 +130,6 @@ found:
     release(&p->lock);
     return 0;
   }
-  /*
-  char *pa = kalloc();
-  if(pa == 0) 
-	panic("kalloc\n");
-  uint64 va = KSTACK((int) (p - proc));
-  if(mappages(p->kernel_pagetable, va, PGSIZE, (uint64)pa,  PTE_R | PTE_W) != 0)
-    panic("kvmmap");
-  //kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-  p->kstack = va;
-  */
 
 
   // Set up new context to start executing at forkret,
@@ -258,6 +248,7 @@ userinit(void)
   // and data into it.
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
+  ukvmcopy(p->pagetable, p->kernel_pagetable, 0, p->sz);
 
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
@@ -284,8 +275,10 @@ growproc(int n)
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
+    ukvmcopy(p->pagetable, p->kernel_pagetable, p->sz, sz);
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
+    ukvmdealloc(p->kernel_pagetable, p->sz, sz);
   }
   p->sz = sz;
   return 0;
@@ -311,6 +304,7 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+  ukvmcopy(np->pagetable, np->kernel_pagetable, 0, p->sz);
   np->sz = p->sz;
 
   np->parent = p;

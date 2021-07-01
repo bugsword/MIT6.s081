@@ -92,6 +92,42 @@ ukvmmap(pagetable_t uk_pg, uint64 va, uint64 pa, uint64 sz, int perm)
     panic("ukvmmap");
 }
 
+void
+ukvmcopy(pagetable_t src_pg, pagetable_t kernel_pg, uint64 oldsz, uint64 newsz)
+{
+  if(newsz <= oldsz)
+    return;
+  if (newsz >= PLIC) 
+    panic("ukvmcopy: sz larger than PLIC");
+  pte_t *pte1, *pte2;
+
+  oldsz = PGROUNDUP(oldsz);
+  for(int i = oldsz; i < newsz; i += PGSIZE){
+    if((pte1 = walk(src_pg, i, 0)) == 0)
+      panic("ukvmcopy: pte should exist");
+    if((*pte1 & PTE_V) == 0)
+      panic("ukvmcopy: page not present");
+    if((pte2 = walk(kernel_pg, i, 1)) == 0)
+      panic("ukvmcopy: pte should exist");
+    *pte2 = *pte1 ;
+    *pte2 &= ~PTE_U;
+  }
+}
+
+void
+ukvmdealloc(pagetable_t kernel_pg, uint64 oldsz, uint64 newsz)
+{
+  if(newsz >= oldsz)
+    return;
+  if(oldsz >= PLIC)
+    panic("ukvmdealloc: sz larger than PLIC");
+
+  if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
+    int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
+    uvmunmap(kernel_pg, PGROUNDUP(newsz), npages, 0);
+  }
+}
+
 pagetable_t
 ukvminit()
 {
@@ -560,6 +596,8 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
+  return copyin_new(pagetable, dst, srcva, len);
+  /*
   uint64 n, va0, pa0;
 
   while(len > 0){
@@ -577,6 +615,7 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
     srcva = va0 + PGSIZE;
   }
   return 0;
+  */
 }
 
 // Copy a null-terminated string from user to kernel.
@@ -586,6 +625,8 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
+  return copyinstr_new(pagetable, dst,  srcva,  max);
+  /*
   uint64 n, va0, pa0;
   int got_null = 0;
 
@@ -620,5 +661,6 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+  */
 }
 
