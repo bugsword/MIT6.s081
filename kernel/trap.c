@@ -72,13 +72,28 @@ usertrap(void)
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
   if(p->killed)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
+    acquire(&p->lock);
+    if(p->interval > 0) {
+      if(p->ticks == p->interval && p->is_used == 0) {
+  		p->trapframe->ca1 = p->trapframe->a1; 
+        p->trapframe->cra = p->trapframe->ra; 
+        p->trapframe->cs0 = p->trapframe->s0; 
+		p->trapframe->csp = p->trapframe->sp; 
+		p->trapframe->cepc = p->trapframe->epc; 
+    	p->trapframe->epc = p->handler;
+        p->ticks = 0;
+		p->is_used = 1;
+	  }
+  	  p->ticks += 1;
+    }
+    release(&p->lock);
     yield();
+  }
 
   usertrapret();
 }
@@ -151,7 +166,21 @@ kerneltrap()
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  {
+	/*
+    struct proc *p = myproc();
+    acquire(&p->lock);
+    if(p->interval > 0) {
+  	  p->ticks += 1;
+      if(p->ticks == p->interval) {
+    	p->trapframe->epc = p->handler;
+        p->ticks = 0;
+	  }
+    }
+    release(&p->lock);
+	*/
     yield();
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.

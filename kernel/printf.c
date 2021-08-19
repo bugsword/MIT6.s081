@@ -122,6 +122,7 @@ panic(char *s)
   printf(s);
   printf("\n");
   panicked = 1; // freeze uart output from other CPUs
+  backtrace();
   for(;;)
     ;
 }
@@ -131,4 +132,20 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+void 
+backtrace() 
+{ 
+  uint64 cur_fp = r_fp();
+  uint64 before_fp;
+  printf("backtrace\n");
+  while(1) {
+    before_fp = *(uint64 *)(cur_fp - 16);
+    printf("%p\n", *(uint64 *)(cur_fp - 8));
+    cur_fp = before_fp;
+    //只有1个stack frame，因为分配是严格对齐的，所以栈顶fp的range_up和range_down相等，通过这个来判断堆栈是否已经结束；
+    if(PGROUNDDOWN(before_fp) == PGROUNDUP(before_fp)) 
+      break;
+  }
 }
