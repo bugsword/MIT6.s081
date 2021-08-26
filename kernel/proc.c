@@ -238,9 +238,10 @@ userinit(void)
 int
 growproc(int n)
 {
-  uint sz;
+  //uint sz;
   struct proc *p = myproc();
-
+  
+  /*
   sz = p->sz;
   if(n > 0){
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
@@ -250,6 +251,8 @@ growproc(int n)
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
+  */
+  p->sz += n;
   return 0;
 }
 
