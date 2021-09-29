@@ -111,6 +111,23 @@ walkaddr(pagetable_t pagetable, uint64 va)
   return pa;
 }
 
+pte_t *
+walkaddr_pte(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+
+  if(va >= MAXVA)
+    return 0;
+
+  pte = walk(pagetable, va, 0);
+  if(pte == 0)
+    return 0;
+  if((*pte & PTE_V) == 0)
+    return 0;
+  if((*pte & PTE_U) == 0)
+    return 0;
+  return pte;
+}
 // add a mapping to the kernel page table.
 // only used when booting.
 // does not flush TLB or enable paging.
@@ -299,6 +316,45 @@ uvmfree(pagetable_t pagetable, uint64 sz)
   freewalk(pagetable);
 }
 
+int
+uvmcopy_cow(pagetable_t old, pagetable_t new, uint64 sz)
+{
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    pa = PTE2PA(*pte);
+    //printf("copy_cow:pa:%p\n", pa);
+    *pte &= ~PTE_W;
+    flags = PTE_FLAGS(*pte);
+    pg_counter_add(pa/4096, 1);
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      goto err;
+    }
+  }
+  return 0;
+
+ err:
+  uvmunmap(new, 0, i / PGSIZE, 1);
+    //count down in function kfree 
+ /*
+  for(int j = 0; j <= i; ++j) {
+    if((pte = walk(old, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    pa = PTE2PA(*pte);
+    *pte |= PTE_W;
+    pg_counter_add(pa/4096, -1);
+*/
+  return -1;
+}
+
 // Given a parent process's page table, copy
 // its memory into a child's page table.
 // Copies both the page table and the
@@ -334,7 +390,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
 }
-
 // mark a PTE invalid for user access.
 // used by exec for the user stack guard page.
 void
@@ -355,17 +410,46 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
-
+  pte_t *pte;
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
+    pte = walkaddr_pte(pagetable, va0);
+    if(pte == 0)
       return -1;
+    pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
-
+    //if((*pte & PTE_W) || 
+    //    ((*pte & PTE_W) == 0 && pg_counter_add(PTE2PA(*pte)/4096, 0) == 1)) {
+    if(pg_counter_add(pa0/4096, 0) == 0) 
+        return -1;
+    else if(pg_counter_add(pa0/4096, 0) == 1) {
+        memmove((void *)(pa0 + (dstva - va0)), src, n);
+        //printf("copyout_1:%d\n", pg_counter_add(pa0/4096, 0)); 
+        *pte |= PTE_W;
+    }
+    else {
+        char* mem = kalloc();
+        if(mem == 0)
+          return -1;
+        else {
+            memmove(mem, (char*)pa0, PGSIZE);
+            memmove((void *)(mem + (dstva - va0)), src, n);
+            //DONT delete
+            //printf("copyout:%d\n", pg_counter_add(pa0/4096, -1)); 
+            pg_counter_add(pa0/4096, -1); 
+            int perm = PTE_FLAGS(*pte);
+            *pte = PA2PTE(mem) | perm | PTE_W;
+        } 
+     }
+      /*
+      memset(mem, 0, PGSIZE);
+      int perm = PTE_FLAGS(*pte);
+      *pte |= perm | PTE_W;
+      pg_counter_add(PTE2PA(*pte)/4096, -1);                
+      memmove((void *)(mem + (dstva - va0)), src, n);
+      */
     len -= n;
     src += n;
     dstva = va0 + PGSIZE;

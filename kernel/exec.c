@@ -140,7 +140,6 @@ loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uint sz
 
   if((va % PGSIZE) != 0)
     panic("loadseg: va must be page aligned");
-
   for(i = 0; i < sz; i += PGSIZE){
     pa = walkaddr(pagetable, va + i);
     if(pa == 0)

@@ -68,9 +68,45 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    p->killed = 1;
+    uint64 scause = r_scause();
+    uint64 va = PGROUNDDOWN(r_stval());
+    pte_t *pte;
+    //if (scause == 13 || scause == 15 || scause == 12) {
+    if (scause == 13 || scause == 15 ) {
+    //if (scause == 13 || scause == 15 || scause == 2) {
+		//printf("p->pid:%d p name:%s p->parent pid:%d p->parent name:%s \n", p->pid, p->name, p->parent->pid, p->parent->name);
+        //printf("handle:            sepc=%p stval=%p\n", r_sepc(), r_stval());
+        char* mem = kalloc();
+        if(mem == 0)
+          p->killed = 1;
+        else if ((pte = walk(p->pagetable, va, 0)) == 0) {
+          p->killed = 1;   
+          kfree(mem);
+        }
+        else if(pg_counter_add(PTE2PA(*pte)/4096, 0) == 1) {
+          //printf("trap1:count = 1, perm:%d\n", PTE_FLAGS(*pte));
+          if((*pte & PTE_W) == 0) 
+            *pte |= PTE_W;
+          //printf("trap1.1:count = 1, perm:%d\n", PTE_FLAGS(*pte));
+          //p->killed = 1;   
+          kfree(mem);
+        } else {
+            //printf("trap2:scause=%d count =%d, pa:%p va:%p perm:%d\n", scause, pg_counter_add(PTE2PA(*pte)/4096, 0), (uint64)PTE2PA(*pte), va, PTE_FLAGS(*pte));
+            //memmove((void*)mem, PTE2PA(*pte), n);
+            memmove(mem, (char*)PTE2PA(*pte), PGSIZE);
+            int perm = PTE_FLAGS(*pte);
+            pg_counter_add(PTE2PA(*pte)/4096, -1);   
+            *pte = PA2PTE(mem) | perm | PTE_W;
+            //printf("trap2.1:scause=%d count =%d, pa:%p va:%p perm:%d\n", scause, pg_counter_add(PTE2PA(*pte)/4096, 0), (uint64)PTE2PA(*pte), va, PTE_FLAGS(*pte));
+            //printf("trap3:count =%d, perm:%d\n", pg_counter_add(PTE2PA(*pte)/4096, 0), PTE_FLAGS(*pte));
+        } 
+    } else {
+        //pte = walk(p->pagetable, va, 0);
+        //printf("va is:%p pte is:%p perm is:%d count is:%d\n", va, pte, PTE_FLAGS(*pte), pg_counter_add(PTE2PA(*pte)/4096, 0));
+        printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+        printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+        p->killed = 1;
+    }
   }
 
   if(p->killed)
@@ -144,6 +180,14 @@ kerneltrap()
     panic("kerneltrap: interrupts enabled");
 
   if((which_dev = devintr()) == 0){
+	/*
+	struct proc* p = myproc();
+    uint64 va = PGROUNDDOWN(r_stval());
+    pte_t *pte = walk(p->pagetable, va, 0);
+	//int cnt = pg_counter_add(PTE2PA(*pte)/4096, 0);
+	int cnt = 0;
+    printf("va is:%p Pa is:%p pte is%p count is:%d\n", va, PTE2PA(*pte), pte, cnt);
+	*/
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
     panic("kerneltrap");
