@@ -72,7 +72,7 @@ usertrap(void)
     uint64 va = PGROUNDDOWN(r_stval());
     pte_t *pte;
     //if (scause == 13 || scause == 15 || scause == 12) {
-    if (scause == 13 || scause == 15 ) {
+    if ( scause == 15 ) {
     //if (scause == 13 || scause == 15 || scause == 2) {
 		//printf("p->pid:%d p name:%s p->parent pid:%d p->parent name:%s \n", p->pid, p->name, p->parent->pid, p->parent->name);
         //printf("handle:            sepc=%p stval=%p\n", r_sepc(), r_stval());

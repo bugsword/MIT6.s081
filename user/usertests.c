@@ -2149,12 +2149,12 @@ kernmem(char *s)
 void
 sbrkfail(char *s)
 {
-  enum { BIG=100*1024*1024 };
+  enum { BIG=127*1024*1024 };
   int i, xstatus;
   int fds[2];
   char scratch;
   char *c, *a;
-  int pids[10];
+  int pids[3];
   int pid;
  
   if(pipe(fds) != 0){
@@ -2164,7 +2164,7 @@ sbrkfail(char *s)
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
     if((pids[i] = fork()) == 0){
       // allocate a lot of memory
-      sbrk(BIG - (uint64)sbrk(0));
+      printf("i=%d pid=%d sbrk:%p\n", i, pids[i], sbrk(BIG - (uint64)sbrk(0)));
       write(fds[1], "x", 1);
       // sit around until killed
       for(;;) sleep(1000);
@@ -2177,11 +2177,16 @@ sbrkfail(char *s)
   // we'll be able to allocate here
   c = sbrk(PGSIZE);
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
-    if(pids[i] == -1)
+    if(pids[i] == -1) {
+  	  printf("run here\n");
       continue;
+    }
     kill(pids[i]);
+  	printf("run here %d\n", i);
     wait(0);
   }
+  return ;
+
   if(c == (char*)0xffffffffffffffffL){
     printf("%s: failed sbrk leaked memory\n", s);
     exit(1);
@@ -2644,6 +2649,8 @@ run(void f(char *), char *s) {
   int xstatus;
 
   printf("test %s: ", s);
+  int free0 = countfree();
+  int free1 = 0;
   if((pid = fork()) < 0) {
     printf("runtest: fork error\n");
     exit(1);
@@ -2657,6 +2664,10 @@ run(void f(char *), char *s) {
       printf("FAILED\n");
     else
       printf("OK\n");
+    if((free1 = countfree()) < free0){
+      printf("FAILED %s\n", s);
+	}
+    printf("lost some free pages %d (out of %d)\n", free1, free0);
     return xstatus == 0;
   }
 }

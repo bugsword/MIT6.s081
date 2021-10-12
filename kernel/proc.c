@@ -192,6 +192,9 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  struct proc* p = myproc();
+  printf("trapframe:%d %p\n", pg_counter_add((uint64)p->trapframe/4096, 0), (uint64)p->trapframe);
+  printf("trampoline:%d %p\n", pg_counter_add((uint64)trampoline/4096, 0), (uint64)trampoline);
   uvmfree(pagetable, sz);
 }
 

@@ -340,6 +340,7 @@ uvmcopy_cow(pagetable_t old, pagetable_t new, uint64 sz)
   return 0;
 
  err:
+  printf("uvmunmap error\n");
   uvmunmap(new, 0, i / PGSIZE, 1);
     //count down in function kfree 
  /*
@@ -436,8 +437,6 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
         else {
             memmove(mem, (char*)pa0, PGSIZE);
             memmove((void *)(mem + (dstva - va0)), src, n);
-            //DONT delete
-            //printf("copyout:%d\n", pg_counter_add(pa0/4096, -1)); 
             pg_counter_add(pa0/4096, -1); 
             int perm = PTE_FLAGS(*pte);
             *pte = PA2PTE(mem) | perm | PTE_W;

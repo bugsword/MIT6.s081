@@ -24,22 +24,23 @@ struct {
 } kmem;
 
 uint64 pg_counter;
+struct spinlock counter_lock;
 
 uint64 
 pg_counter_add_uint64(uint64 index, int value)
 {
-  uint64* tmp;
-  tmp = (uint64*)pg_counter;
+  uint64* tmp = (uint64*)pg_counter;
   return *(tmp - index) += value;
 }
 
 int 
 pg_counter_add(uint64 index, int value)
 {
-  int* tmp;
-  //index -= KERNBASE/4096;
-  tmp = (int*)pg_counter;
-  return *(tmp - index) += value;
+  acquire(&counter_lock);
+  int* tmp = (int*)pg_counter;
+  int res = (*(tmp - index) += value);
+  release(&counter_lock);
+  return res;
 }
 
 uint64 
@@ -59,9 +60,12 @@ kinit()
   //uint64 pg_counter_size = PGROUNDUP(PHYSTOP) / 4096 * 8; // /4096得到页表数量，每个页表的计数器使用uint64来计数，所以*8得到存储pg_counter需要内存大小；
   //uint64 pg_counter_size = (PHYSTOP - KERNBASE) / 4096 * 4; // /4096得到页表数量，每个页表的计数器使用uint64来计数，所以*8得到存储pg_counter需要内存大小；
   uint64 pg_counter_size = PHYSTOP / 4096 * 4; // /4096得到页表数量，每个页表的计数器使用uint64来计数，所以*8得到存储pg_counter需要内存大小；
-  pg_counter = PHYSTOP - 1;
-  freerange(end, (void*)(PHYSTOP - 1 - pg_counter_size));
+  //pg_counter = PHYSTOP - 1;
+  //freerange(end, (void*)(PHYSTOP - 1 - pg_counter_size));
+  pg_counter = PHYSTOP ;
+  freerange(end, (void*)(PHYSTOP - pg_counter_size));
   is_kinit = 1;
+  initlock(&counter_lock, "counter_lock");
 }
 
 void
