@@ -10,15 +10,35 @@
 #define STACK_SIZE  8192
 #define MAX_THREAD  4
 
+struct context {
+  uint64 ra; 
+  uint64 sp;
+
+  // callee-saved
+  uint64 s0; 
+  uint64 s1; 
+  uint64 s2; 
+  uint64 s3; 
+  uint64 s4; 
+  uint64 s5; 
+  uint64 s6; 
+  uint64 s7; 
+  uint64 s8; 
+  uint64 s9; 
+  uint64 s10;
+  uint64 s11;
+};
 
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
+  struct context context; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
 
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
 extern void thread_switch(uint64, uint64);
+
               
 void 
 thread_init(void)
@@ -63,6 +83,18 @@ thread_schedule(void)
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
+  	//save current process stack into thd1_stack (actually stored in the heap),
+ 	 // and copy thd2_stack (actually heap too) to current process stack
+	  int tmp = 0;
+  	  char *proc_stack_addr = (char*)(((uint64)&tmp >> 12) << 12) + 4096;
+	  memcpy(t->stack, proc_stack_addr-4096, 4096);
+      int n = 4096;
+      char* src = current_thread->stack;
+      char* dst = proc_stack_addr - 4096;
+      while(n-- > 0) {
+        *dst++ = *src++;
+      }
+      thread_switch((uint64)&t->context, (uint64)&current_thread->context);
   } else
     next_thread = 0;
 }
@@ -77,6 +109,10 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
+  int tmp = 0;
+  char *proc_stack_addr = (char*)(((uint64)&tmp >> 12) << 12) + 4096;
+  t->context.ra = (uint64)func;
+  t->context.sp = (uint64)proc_stack_addr;
 }
 
 void 

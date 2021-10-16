@@ -20,6 +20,7 @@ barrier_init(void)
   assert(pthread_mutex_init(&bstate.barrier_mutex, NULL) == 0);
   assert(pthread_cond_init(&bstate.barrier_cond, NULL) == 0);
   bstate.nthread = 0;
+  bstate.round = 0;
 }
 
 static void 
@@ -30,7 +31,19 @@ barrier()
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
-  
+  pthread_mutex_lock(&bstate.barrier_mutex);       // acquire lock
+  bstate.nthread += 1;
+  int tmp = bstate.nthread;
+  if (tmp == nthread) {
+     bstate.round += 1;
+     bstate.nthread = 0;
+     //printf("barrier wake: round=%d tmp=%d\n", bstate.round, tmp);
+     pthread_cond_broadcast(&bstate.barrier_cond);     // wake up every thread sleeping on cond
+  }
+  else {
+     pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);  // go to sleep on cond, releasing lock mutex, acquiring upon wake up
+  }
+  pthread_mutex_unlock(&bstate.barrier_mutex);       // release lock
 }
 
 static void *
@@ -43,7 +56,9 @@ thread(void *xa)
   for (i = 0; i < 20000; i++) {
     int t = bstate.round;
     assert (i == t);
+    //printf("thread before: thrd:%ld i=%d\n", n, i);
     barrier();
+    //printf("thread after: thrd:%ld i=%d\n", n, i);
     usleep(random() % 100);
   }
 
