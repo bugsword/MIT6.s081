@@ -85,6 +85,7 @@ thread_schedule(void)
      */
   	//save current process stack into thd1_stack (actually stored in the heap),
  	 // and copy thd2_stack (actually heap too) to current process stack
+      /*
 	  int tmp = 0;
   	  char *proc_stack_addr = (char*)(((uint64)&tmp >> 12) << 12) + 4096;
 	  memcpy(t->stack, proc_stack_addr-4096, 4096);
@@ -94,6 +95,7 @@ thread_schedule(void)
       while(n-- > 0) {
         *dst++ = *src++;
       }
+  	  */
       thread_switch((uint64)&t->context, (uint64)&current_thread->context);
   } else
     next_thread = 0;
@@ -109,10 +111,10 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
-  int tmp = 0;
-  char *proc_stack_addr = (char*)(((uint64)&tmp >> 12) << 12) + 4096;
+  //int tmp = 0;
+  //char *proc_stack_addr = (char*)(((uint64)&tmp >> 12) << 12) + 4096;
   t->context.ra = (uint64)func;
-  t->context.sp = (uint64)proc_stack_addr;
+  t->context.sp = (uint64)t->stack + STACK_SIZE;
 }
 
 void 
