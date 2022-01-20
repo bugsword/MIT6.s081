@@ -31,9 +31,6 @@ kinit()
 {
   for(int i =0; i < NCPU; ++i){
 	char *name = strncpy(kmem_name[i], "kmem", 8);
-	//name[4] = i - '0';
-	name[4] = 'i';
-	printf("name:%s\n", name);	
   	initlock(&kmems[i].lock, name);
    }
   freerange(end, (void*)PHYSTOP);
