@@ -23,8 +23,6 @@
 #include "fs.h"
 #include "buf.h"
 
-#define num_bucket  13
-#define  bucket_size NBUF/num_bucket;
 
 struct {
   struct spinlock lock;
@@ -85,13 +83,13 @@ bget(uint dev, uint blockno)
   int min_idx = -1;
   for(int idx = start_idx; idx < end_idx; ++idx) {
     b = &bcache.buf[idx];
-    if(b->refcnt == 0 && min_t > b->t_last_use) {
+    if(b->refcnt == 0 && min_t >= b->t_last_use) {
  	  min_idx = idx;
       min_t = b->t_last_use;
     }
   }
 
-  //printf("blockno:%d bucket_id:%d start_idx:%d end_idx:%d min_t:%d min_idx:%d\n", blockno, bucket_id, start_idx, end_idx, min_t, min_idx);
+   //printf("blockno:%d bucket_id:%d start_idx:%d end_idx:%d min_t:%d min_idx:%d\n", blockno, bucket_id, start_idx, end_idx, min_t, min_idx);
   if (min_idx != -1) {
     b = &bcache.buf[min_idx];
     b->dev = dev;
