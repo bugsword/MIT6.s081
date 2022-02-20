@@ -20,6 +20,7 @@
 #include "fs.h"
 #include "buf.h"
 #include "file.h"
+#include "fcntl.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
@@ -713,4 +714,30 @@ struct inode*
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
+}
+
+struct inode*
+namei_symlink(char *path, int mode)
+{
+  int max_depth = 10;
+  struct inode* ip;
+  char name[DIRSIZ];
+  char new_path[MAXPATH];
+  memmove(new_path, path, MAXPATH);
+  for(int i = 0; i < max_depth; i++) {
+    ip = namex(new_path, 0, name);
+    if(ip ==0)
+        return 0;
+    ilock(ip);
+    if ((ip->type != T_SYMLINK) || (mode & O_NOFOLLOW)){
+      iunlock(ip);
+      return ip; 
+    }
+    if(readi(ip, 0, (uint64)new_path, 0, MAXPATH) != MAXPATH) {
+      iunlock(ip);
+      return 0;
+    }
+    iunlock(ip);
+  }
+  return 0;  
 }

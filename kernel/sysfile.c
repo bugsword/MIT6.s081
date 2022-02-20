@@ -252,7 +252,7 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+    if((type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE || ip->type == T_SYMLINK)) || (type == T_SYMLINK && ip->type == T_SYMLINK))
       return ip;
     iunlockput(ip);
     return 0;
@@ -304,7 +304,9 @@ sys_open(void)
       return -1;
     }
   } else {
-    if((ip = namei(path)) == 0){
+    ip = namei_symlink(path, omode);
+    //ip = namei(path);
+    if(ip == 0){
       end_op();
       return -1;
     }
@@ -482,5 +484,29 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+uint64
+sys_symlink(void) {
+    //char *target, char *path) {
+
+  char target[MAXPATH], path[MAXPATH];
+  struct inode *ip;
+
+  if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
+  begin_op();
+  ip = create(path, T_SYMLINK, 0, 0);
+  if(ip == 0){
+    end_op();
+    return -1;
+  }
+  if(writei(ip, 0, (uint64)target, 0, MAXPATH) != MAXPATH) { //将target信息存储至inode的data中
+    end_op();
+    return -1;
+  }
+  iunlockput(ip);
+  end_op();
   return 0;
 }

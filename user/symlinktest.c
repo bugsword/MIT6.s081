@@ -45,6 +45,7 @@ static int
 stat_slink(char *pn, struct stat *st)
 {
   int fd = open(pn, O_RDONLY | O_NOFOLLOW);
+  //printf("run stat slink\n");
   if(fd < 0)
     return -1;
   if(fstat(fd, st) != 0)
@@ -70,12 +71,13 @@ testsymlink(void)
   r = symlink("/testsymlink/a", "/testsymlink/b");
   if(r < 0)
     fail("symlink b -> a failed");
-
   if(write(fd1, buf, sizeof(buf)) != 4)
     fail("failed to write to a");
+  printf("run here write\n");
 
   if (stat_slink("/testsymlink/b", &st) != 0)
     fail("failed to stat b");
+  printf("run here\n");
   if(st.type != T_SYMLINK)
     fail("b isn't a symlink");
 
